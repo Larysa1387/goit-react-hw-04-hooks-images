@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { ToastContainer } from 'react-toastify';
 
 import imageAPI from './services/imageApi/imageApi.jsx';
@@ -7,110 +7,78 @@ import ImageGallery from './components/ImageGallery';
 import Loader from './components/Loader';
 import Button from './components/Button';
 import Modal from './components/Modal';
-
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
-class App extends Component {
-  state = {
-    images: [],
-    searchQuery: '',
-    page: 1,
-    largeImage: '',
-    loading: false,
-    error: null,
-    showModal: false,
-  };
 
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.searchQuery !== this.state.searchQuery) {
-      this.searchImagesFetch();
-    }
-    else if (this.state.page !== 1) {
-        window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        behavior: 'smooth',
-      });
-    }
-  }
+export default function App() {
+  const [images, setImages] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [largeImage, setLargeImage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
-  searchImagesFetch = () => {
-    const { searchQuery, page } = this.state;
-    this.setState({ loading: true });
+  useEffect(() => {
+    if (searchQuery) {
+      searchImagesFetch();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  const searchImagesFetch = () => {
+    setLoading(true);
     imageAPI
       .fetchImage(searchQuery, page)
-      .then((imagesArr) => this.checkNewFetchImages(imagesArr.hits))
-      .catch((error) => this.setState({ error }))
-      .finally(() =>
-        this.setState({ loading: false }),
-      );
+      .then((imagesArr) => {
+        if (page === 1) {
+          setImages(imagesArr.hits)
+        } else {
+          setImages((prevState) => [...prevState, ...imagesArr.hits]);
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: 'smooth',
+          });
+        }
+      })
+      .catch((error) => setError(error))
+      .finally(() =>{
+        setLoading(false);
+        setPage((prevPage) => prevPage + 1);
+      });
   };
 
-  checkNewFetchImages = (imagesArr) => {
-    imagesArr === []
-      ? this.setState({
-        images: imagesArr,
-        page:1,
-        })
-      : this.setState((prevState) => ({
-          images: [...prevState.images, ...imagesArr],
-          page: prevState.page + 1,
-        }));
+  const handleFormSubmit = (searchQuery) => {
+    setSearchQuery(searchQuery);
+    setImages([]);
+    setPage(1);
+    setError(null);
   };
 
-  handleFormSubmit = (searchQuery) => {
-    this.setState({
-      searchQuery,
-      images: [],
-      page: 1,
-      error:null,
-    });
+  const modalOpen = (largeImage) => {
+    setShowModal(true);
+    setLargeImage(largeImage);
   };
 
-  // onClickLoadMore = () => {
-  //   this.searchImagesFetch();
-  //   this.scrollGallery();
-  // };
-
-  // scrollGallery = () => {
-  //   setTimeout(() => {
-  //     window.scrollTo({
-  //       top: document.documentElement.scrollHeight,
-  //       behavior: 'smooth',
-  //     });
-  //   }, 500);
-  // };
-
-  modalOpen = (largeImage) => {
-    this.setState({
-      showModal: true,
-      largeImage,
-    });
+  const modalClose = () => {
+    setShowModal(false);
+    setLargeImage('');
   };
 
-  modalClose = () => {
-    this.setState({
-      showModal: false,
-      largeImage: '',
-    });
-  };
+  return (
+    <div>
+      <ToastContainer autoClose={3000} />
+      <Searchbar onSubmit={handleFormSubmit} />
+      {error && (
+        <h1 style={{ display: 'flex', justifyContent: 'center'}}>
+          {error.message}
+        </h1>
+      )}
 
-  render() {
-    const { loading, error, images, showModal, largeImage } = this.state;
-    return (
-      <div>
-        <ToastContainer autoClose={3000} />
-        {error && <h1>error.message</h1>}
-        <Searchbar onSubmit={this.handleFormSubmit} />
-
-        {images && <ImageGallery images={images} modalOpen={this.modalOpen} />}
-        {showModal && (
-          <Modal modalClose={this.modalClose} largeImage={largeImage} />
-        )}
-        {loading && <Loader />}
-        {images.length !== 0 && <Button onClick={this.searchImagesFetch} />}
-      </div>
-    );
-  }
-}
-
-export default App;
+      {images && <ImageGallery images={images} modalOpen={modalOpen} />}
+      {showModal && <Modal modalClose={modalClose} largeImage={largeImage} />}
+      {loading && <Loader />}
+      {images.length !== 0 && <Button onClick={searchImagesFetch} />}
+    </div>
+  );
+};
