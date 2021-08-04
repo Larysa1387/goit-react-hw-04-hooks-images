@@ -23,7 +23,7 @@ export default function App() {
     if (searchQuery) {
       searchImagesFetch();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   const searchImagesFetch = () => {
